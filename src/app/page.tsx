@@ -88,12 +88,12 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right column — Attorney Portrait (/foto.png) */}
+            {/* Right column — Attorney Portrait (/img/attorney-portrait.png) */}
             <div className="lg:col-span-5 flex justify-center lg:justify-end">
               <div className="w-full max-w-[355px]">
                 <div className="bg-[#122B4D] border border-[#244673] p-3">
                   <img
-                    src="/foto.png"
+                    src="/img/attorney-portrait.png"
                     alt={
                       isRu
                         ? "Иммиграционный адвокат США Андрей Плаксин"

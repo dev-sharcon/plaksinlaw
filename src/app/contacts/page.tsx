@@ -5,6 +5,8 @@ import { Check } from "lucide-react";
 import SiteLayout from "@/components/SiteLayout";
 import { useSite } from "@/context/LanguageContext";
 import { CONTACT_INFO } from "@/data/siteContent";
+import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
+import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
 export default function ContactsPage() {
   const { locale, openPayment } = useSite();
@@ -18,31 +20,36 @@ export default function ContactsPage() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     if (!name || !phone) return;
+    if (turnstileEnabled && !turnstileToken) {
+      setError(isRu ? "Пожалуйста, подтвердите, что Вы не робот." : "Please complete the verification.");
+      return;
+    }
     setSubmitting(true);
     try {
-      await fetch("/api/crm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "CONSULTATION_INQUIRY",
-          clientName: name,
-          phone,
-          email,
-          category: category || "General Consultation",
-          notes: message,
-          amount: 300,
-          locale,
-        }),
+      await postCrm({
+        type: "CONSULTATION_INQUIRY",
+        source: "contacts_page",
+        clientName: name,
+        phone,
+        email,
+        category: category || "General Consultation",
+        notes: message,
+        locale,
+        turnstileToken,
       });
-    } catch {
-      // fallback
+      setSubmitted(true);
+    } catch (err) {
+      setError(crmErrorMessage(err, isRu));
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
-    setSubmitted(true);
   };
 
   return (
@@ -298,6 +305,14 @@ export default function ContactsPage() {
                       className="w-full px-4 py-3 text-sm bg-white border border-slate-300 focus:border-[#0075BF] focus:outline-none"
                     />
                   </div>
+
+                  <Turnstile onToken={setTurnstileToken} locale={locale} />
+
+                  {error && (
+                    <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-3 py-2">
+                      {error}
+                    </p>
+                  )}
 
                   <button
                     type="submit"

@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CreditCard, Copy, Check, ChevronDown } from "lucide-react";
 import SiteLayout from "@/components/SiteLayout";
 import { useSite } from "@/context/LanguageContext";
 import { SITE_CONTENT, CONTACT_INFO } from "@/data/siteContent";
+import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
+import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
 export default function FeesPage() {
-  const router = useRouter();
   const { locale, openInquiry } = useSite();
   const isRu = locale === "ru";
 
@@ -26,6 +26,8 @@ export default function FeesPage() {
   const [sum, setSum] = useState("300");
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
@@ -41,39 +43,34 @@ export default function FeesPage() {
 
   const handleCardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     if (!fio || !phone || !email || !desc || numericSum <= 0) return;
+    if (turnstileEnabled && !turnstileToken) {
+      setError(isRu ? "Пожалуйста, подтвердите, что Вы не робот." : "Please complete the verification.");
+      return;
+    }
     setSubmitting(true);
     try {
-      await fetch("/api/crm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create_payment",
-          clientName: fio,
-          phone,
-          email,
-          description: desc,
-          baseAmountUsd: numericSum,
-          feeAmountUsd: feeAmount,
-          totalAmountUsd: totalCardAmount,
-          method: "Stripe Card",
-          locale,
-        }),
+      const data = await postCrm({
+        action: "create_payment",
+        clientName: fio,
+        phone,
+        email,
+        description: desc,
+        baseAmountUsd: numericSum,
+        method: "Stripe Card",
+        locale,
+        turnstileToken,
       });
-    } catch {
-      // fallback
+      if (data.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+        return;
+      }
+      setSubmitting(false);
+    } catch (err) {
+      setError(crmErrorMessage(err, isRu));
+      setSubmitting(false);
     }
-    const params = new URLSearchParams({
-      fio,
-      phone,
-      email,
-      desc,
-      sum: numericSum.toFixed(2),
-      fee: feeAmount.toFixed(2),
-      total: totalCardAmount.toFixed(2),
-      lang: locale,
-    });
-    router.push(`/pay?${params.toString()}`);
   };
 
   return (
@@ -333,10 +330,18 @@ export default function FeesPage() {
                     </div>
                   </div>
 
+                  <Turnstile onToken={setTurnstileToken} locale={locale} />
+
+                  {error && (
+                    <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-3 py-2">
+                      {error}
+                    </p>
+                  )}
+
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full py-4 bg-[#E59A23] hover:bg-[#d48b17] text-[#0B1F3A] font-bold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full disabled:opacity-60 py-4 bg-[#E59A23] hover:bg-[#d48b17] text-[#0B1F3A] font-bold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <CreditCard className="w-4 h-4" />
                     <span>

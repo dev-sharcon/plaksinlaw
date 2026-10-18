@@ -8,7 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/cases", priority: 0.9 },
     { path: "/fees", priority: 0.8 },
     { path: "/contacts", priority: 0.8 },
-    { path: "/pay", priority: 0.7 },
+    { path: "/media", priority: 0.6 },
   ];
 
   return routes.map((r) => ({

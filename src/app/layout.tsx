@@ -30,11 +30,7 @@ export const metadata: Metadata = {
     "андрей плаксин",
   ],
   alternates: {
-    canonical: "https://plaksinlaw.com/",
-    languages: {
-      "en-US": "https://plaksinlaw.com/",
-      "ru-RU": "https://plaksinlaw.com/",
-    },
+    canonical: "/",
   },
   openGraph: {
     type: "website",
@@ -47,7 +43,7 @@ export const metadata: Metadata = {
       "Personal representation by Attorney Andrey Plaksin for business immigration, O-1, L-1, E-2 visas, and EB-1A, EB-1C, EB-5 green cards. Licensed in NY, NJ, and FL.",
     images: [
       {
-        url: "/foto.png",
+        url: "/img/attorney-portrait.png",
         width: 355,
         height: 440,
         alt: "Attorney Andrey Plaksin — The Plaksin Law Firm, P.C.",
@@ -124,17 +120,12 @@ const jsonLdSchema = {
         latitude: 40.711964,
         longitude: -74.008527,
       },
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "5.0",
-        bestRating: "5",
-        ratingCount: "90",
-      },
     },
   ],
 };
 
 import { LanguageProvider } from "@/context/LanguageContext";
+import Analytics from "@/components/Analytics";
 
 export default function RootLayout({
   children,
@@ -157,6 +148,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased selection:bg-[#0075BF] selection:text-white">
         <LanguageProvider>{children}</LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );

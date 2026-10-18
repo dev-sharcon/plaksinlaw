@@ -1,10 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { Locale } from "@/data/siteContent";
 import InquiryModal from "@/components/modals/InquiryModal";
 import PaymentModal from "@/components/modals/PaymentModal";
 import VisaQuizModal from "@/components/modals/VisaQuizModal";
+
+const LOCALE_STORAGE_KEY = "plaksin-locale";
 
 interface PaymentPrefill {
   fio?: string;
@@ -37,7 +39,26 @@ export function LanguageProvider({
   children: React.ReactNode;
   initialLocale?: Locale;
 }) {
-  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+
+  // Restore the visitor's language choice after hydration and keep <html lang> in sync.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
+      if (saved === "ru" || saved === "en") setLocaleState(saved);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
+  const setLocale = (loc: Locale) => {
+    setLocaleState(loc);
+    try {
+      localStorage.setItem(LOCALE_STORAGE_KEY, loc);
+    } catch {}
+  };
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [inquiryCategory, setInquiryCategory] = useState("");
   const [paymentOpen, setPaymentOpen] = useState(false);

@@ -5,6 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      disallow: ["/api/", "/pay"],
     },
     sitemap: "https://plaksinlaw.com/sitemap.xml",
   };

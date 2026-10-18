@@ -9,12 +9,14 @@ import {
   CreditCard,
   Building2,
   Lock,
+  XCircle,
   Copy,
   Check,
   CheckCircle2,
-  ShieldAlert,
 } from "lucide-react";
 import { CONTACT_INFO } from "@/data/siteContent";
+import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
+import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
 function PayPageInner() {
   const searchParams = useSearchParams();
@@ -29,24 +31,23 @@ function PayPageInner() {
   const [description, setDescription] = useState(
     searchParams.get("desc") || (isRu ? "Оплата консультации" : "Consultation Fee")
   );
-  const [sum, setSum] = useState(searchParams.get("total") || searchParams.get("sum") || "315");
+  // Base amount without the card fee; the 5% fee is added for card payments.
+  const [sum, setSum] = useState(searchParams.get("sum") || "300");
   const [method, setMethod] = useState<"Stripe Card" | "Zelle">("Stripe Card");
   const [copiedZelle, setCopiedZelle] = useState(false);
 
-  const [step, setStep] = useState<"form" | "card" | "success">("form");
-  const [cardNumber, setCardNumber] = useState("4242 •••• •••• 4242");
-  const [cardExpiry, setCardExpiry] = useState("08/29");
-  const [cardCvc, setCardCvc] = useState("842");
+  const status = searchParams.get("status");
+  const [step, setStep] = useState<"form" | "success">(status === "success" ? "success" : "form");
+  const [paidVia, setPaidVia] = useState<"Stripe Card" | "Zelle">("Stripe Card");
   const [processing, setProcessing] = useState(false);
-  const [receiptId, setReceiptId] = useState("");
+  const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   const numericSum = parseFloat(sum) || 0;
+  const cardTotal = Math.round(numericSum * 105) / 100;
+  const amountDue = method === "Stripe Card" ? cardTotal : numericSum;
 
-  const handleMethodSwitch = (m: "Stripe Card" | "Zelle") => {
-    setMethod(m);
-    if (m === "Zelle" && sum === "315") setSum("300");
-    if (m === "Stripe Card" && sum === "300") setSum("315");
-  };
+  const handleMethodSwitch = (m: "Stripe Card" | "Zelle") => setMethod(m);
 
   const handleCopyZelle = () => {
     navigator.clipboard.writeText(CONTACT_INFO.zellePhone);
@@ -54,26 +55,39 @@ function PayPageInner() {
     setTimeout(() => setCopiedZelle(false), 2000);
   };
 
-  const handleCompletePayment = async (payMethod: "Stripe Card" | "Zelle") => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (numericSum < 1 || numericSum > 25000) {
+      setError(crmErrorMessage(new Error("invalid_amount"), isRu));
+      return;
+    }
+    if (turnstileEnabled && !turnstileToken) {
+      setError(isRu ? "Пожалуйста, подтвердите, что Вы не робот." : "Please complete the verification.");
+      return;
+    }
     setProcessing(true);
     try {
-      const res = await fetch("/api/crm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create_payment",
-          clientName: fio.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-          description: description.trim(),
-          totalAmountUsd: numericSum,
-          method: payMethod,
-        }),
+      const data = await postCrm({
+        action: "create_payment",
+        clientName: fio.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        description: description.trim(),
+        baseAmountUsd: numericSum,
+        method,
+        locale,
+        turnstileToken,
       });
-      const data = await res.json();
-      setReceiptId(data?.payment?.id || `PAY-${Math.floor(1000 + Math.random() * 9000)}`);
+      if (method === "Stripe Card" && data.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+        return;
+      }
+      setPaidVia(method);
       setStep("success");
-    } finally {
+      setProcessing(false);
+    } catch (err) {
+      setError(crmErrorMessage(err, isRu));
       setProcessing(false);
     }
   };
@@ -136,15 +150,25 @@ function PayPageInner() {
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-xs font-mono uppercase tracking-widest text-emerald-700">
-                    {receiptId} • {method}
+                    {paidVia === "Zelle" ? "Zelle" : "Stripe"}
                   </p>
                   <h2 className="font-serif text-2xl font-semibold text-[#0B1F3A]">
-                    {isRu ? "Оплата успешно проведена" : "Payment Successfully Completed"}
+                    {paidVia === "Zelle"
+                      ? isRu
+                        ? "Уведомление об оплате Zelle отправлено"
+                        : "Zelle Payment Notice Sent"
+                      : isRu
+                      ? "Оплата успешно проведена"
+                      : "Payment Successfully Completed"}
                   </h2>
                   <p className="text-sm text-slate-600">
-                    {isRu
-                      ? `Сумма $${numericSum.toFixed(2)} (${description}) зачислена. Подтверждение отправлено на ${email}.`
-                      : `Your payment of $${numericSum.toFixed(2)} (${description}) has been recorded.`}
+                    {paidVia === "Zelle"
+                      ? isRu
+                        ? `Мы получили ваше уведомление о переводе $${numericSum.toFixed(2)}. После поступления средств мы свяжемся с вами.`
+                        : `We received your notice of a $${numericSum.toFixed(2)} transfer and will contact you once the funds arrive.`
+                      : isRu
+                      ? "Спасибо! Квитанция Stripe отправлена на вашу электронную почту."
+                      : "Thank you! Stripe has emailed your receipt."}
                   </p>
                 </div>
                 <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
@@ -156,94 +180,18 @@ function PayPageInner() {
                   </Link>
                 </div>
               </div>
-            ) : step === "card" ? (
-              <div className="space-y-5">
-                <div className="bg-slate-50 border border-slate-200 p-4 flex items-center justify-between">
-                  <div>
-                    <div className="text-xs text-slate-500">{fio}</div>
-                    <div className="text-sm font-semibold text-[#0B1F3A]">{description}</div>
-                  </div>
-                  <div className="text-xl font-mono font-bold text-[#0B1F3A]">
-                    ${numericSum.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      {isRu ? "Номер карты (Visa / MasterCard / Amex)" : "Card Number"}
-                    </label>
-                    <input
-                      type="text"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-sm font-mono border border-slate-300"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        MM/YY
-                      </label>
-                      <input
-                        type="text"
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-sm font-mono border border-slate-300"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        CVC
-                      </label>
-                      <input
-                        type="text"
-                        value={cardCvc}
-                        onChange={(e) => setCardCvc(e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-sm font-mono border border-slate-300"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 p-3 border border-slate-200">
-                  <Lock className="w-4 h-4 text-emerald-700 shrink-0" />
-                  <span>Stripe 256-bit Encrypted Checkout • The Plaksin Law Firm, P.C.</span>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setStep("form")}
-                    className="px-4 py-3 border border-slate-300 text-xs font-semibold text-slate-700"
-                  >
-                    {isRu ? "Назад" : "Back"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={processing}
-                    onClick={() => handleCompletePayment("Stripe Card")}
-                    className="flex-1 py-3 px-6 bg-[#E59A23] hover:bg-[#d48b17] text-[#0B1F3A] font-bold text-xs uppercase tracking-wider cursor-pointer"
-                  >
-                    {processing
-                      ? isRu
-                        ? "Обработка..."
-                        : "Processing..."
-                      : isRu
-                      ? `Оплатить $${numericSum.toFixed(2)}`
-                      : `Pay $${numericSum.toFixed(2)} USD`}
-                  </button>
-                </div>
-              </div>
             ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (method === "Stripe Card") setStep("card");
-                  else handleCompletePayment("Zelle");
-                }}
-                className="space-y-4"
-              >
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {status === "cancelled" && (
+                  <div className="flex items-center gap-2 text-xs text-slate-700 bg-slate-50 border border-slate-200 p-3">
+                    <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>
+                      {isRu
+                        ? "Оплата картой была отменена. Средства не списаны — вы можете попробовать ещё раз."
+                        : "Card payment was cancelled and you were not charged. You can try again."}
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 border border-slate-200">
                   <button
                     type="button"
@@ -379,11 +327,52 @@ function PayPageInner() {
                   </div>
                 </div>
 
+                {method === "Stripe Card" && numericSum > 0 && (
+                  <div className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 px-3.5 py-2.5">
+                    <span className="text-slate-600">
+                      {isRu
+                        ? `$${numericSum.toFixed(2)} + 5% комиссия = к оплате картой:`
+                        : `$${numericSum.toFixed(2)} + 5% fee = card total:`}
+                    </span>
+                    <span className="font-mono font-bold text-[#0B1F3A]">${cardTotal.toFixed(2)}</span>
+                  </div>
+                )}
+
+                <Turnstile onToken={setTurnstileToken} locale={locale} />
+
+                {error && (
+                  <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-3 py-2">
+                    {error}
+                  </p>
+                )}
+
+                {method === "Stripe Card" && (
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <Lock className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span>
+                      {isRu
+                        ? "Вы будете перенаправлены на защищённую страницу оплаты Stripe."
+                        : "You will be redirected to the secure Stripe checkout page."}
+                    </span>
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full py-3.5 px-6 bg-[#E59A23] hover:bg-[#d48b17] text-[#0B1F3A] font-bold text-xs uppercase tracking-wider cursor-pointer"
+                  disabled={processing}
+                  className="w-full py-3.5 px-6 bg-[#E59A23] hover:bg-[#d48b17] text-[#0B1F3A] font-bold text-xs uppercase tracking-wider cursor-pointer disabled:opacity-60"
                 >
-                  {isRu ? "Оплатить" : "Submit Payment"}
+                  {processing
+                    ? isRu
+                      ? "Обработка..."
+                      : "Processing..."
+                    : method === "Stripe Card"
+                    ? isRu
+                      ? `Перейти к оплате картой ($${amountDue.toFixed(2)})`
+                      : `Continue to Card Payment ($${amountDue.toFixed(2)})`
+                    : isRu
+                    ? `Я перевел $${numericSum.toFixed(2)} через Zelle — Уведомить адвоката`
+                    : `I Sent $${numericSum.toFixed(2)} via Zelle — Notify Firm`}
                 </button>
               </form>
             )}

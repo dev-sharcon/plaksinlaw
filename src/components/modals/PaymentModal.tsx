@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { X, CreditCard, Copy, Check, Lock, CheckCircle2, Building2 } from "lucide-react";
+import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
+import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 import { CONTACT_INFO, Locale } from "@/data/siteContent";
 
 interface PaymentModalProps {
@@ -31,18 +33,15 @@ export default function PaymentModal({
   const [description, setDescription] = useState(
     initialValues?.desc || (isRu ? "Оплата консультации" : "Consultation Fee")
   );
-  const [sum, setSum] = useState(initialValues?.sum || "315");
+  // Base amount without the card fee; the 5% fee is added for card payments.
+  const [sum, setSum] = useState(initialValues?.sum || "300");
   const [method, setMethod] = useState<"Stripe Card" | "Zelle">("Stripe Card");
   const [copiedZelle, setCopiedZelle] = useState(false);
 
-  // Simulated Stripe Checkout step
-  const [step, setStep] = useState<"form" | "stripe_checkout" | "success">("form");
-  const [cardNumber, setCardNumber] = useState("4242 •••• •••• 4242");
-  const [cardExpiry, setCardExpiry] = useState("08/29");
-  const [cardCvc, setCardCvc] = useState("842");
+  const [step, setStep] = useState<"form" | "success">("form");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [receiptId, setReceiptId] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   useEffect(() => {
     if (initialValues) {
@@ -66,14 +65,11 @@ export default function PaymentModal({
   if (!isOpen) return null;
 
   const numericSum = parseFloat(sum) || 0;
+  const cardTotal = Math.round(numericSum * 105) / 100;
+  const amountDue = method === "Stripe Card" ? cardTotal : numericSum;
 
   const handleMethodSwitch = (newMethod: "Stripe Card" | "Zelle") => {
     setMethod(newMethod);
-    if (newMethod === "Zelle" && sum === "315") {
-      setSum("300");
-    } else if (newMethod === "Stripe Card" && sum === "300") {
-      setSum("315");
-    }
   };
 
   const handleCopyZelle = () => {
@@ -104,35 +100,36 @@ export default function PaymentModal({
       return;
     }
 
-    if (method === "Stripe Card") {
-      setStep("stripe_checkout");
-    } else {
-      submitPaymentRecord("Zelle");
+    if (turnstileEnabled && !turnstileToken) {
+      setError(isRu ? "Пожалуйста, подтвердите, что Вы не робот." : "Please complete the verification.");
+      return;
     }
+
+    submitPayment(method);
   };
 
-  const submitPaymentRecord = async (payMethod: "Stripe Card" | "Zelle") => {
+  const submitPayment = async (payMethod: "Stripe Card" | "Zelle") => {
     setProcessing(true);
     try {
-      const res = await fetch("/api/crm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create_payment",
-          clientName: fio.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-          description: description.trim(),
-          totalAmountUsd: numericSum,
-          method: payMethod,
-        }),
+      const data = await postCrm({
+        action: "create_payment",
+        clientName: fio.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        description: description.trim(),
+        baseAmountUsd: numericSum,
+        method: payMethod,
+        locale,
+        turnstileToken,
       });
-      const data = await res.json();
-      setReceiptId(data?.payment?.id || `PAY-${Math.floor(1000 + Math.random() * 9000)}`);
+      if (payMethod === "Stripe Card" && data.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+        return;
+      }
       setStep("success");
-    } catch {
-      setError(isRu ? "Произошла ошибка при проведении оплаты." : "An error occurred during payment.");
-    } finally {
+      setProcessing(false);
+    } catch (err) {
+      setError(crmErrorMessage(err, isRu));
       setProcessing(false);
     }
   };
@@ -177,22 +174,14 @@ export default function PaymentModal({
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <div className="space-y-1.5">
-                <p className="text-xs font-mono uppercase tracking-widest text-emerald-700">
-                  {receiptId} • {method}
-                </p>
+                <p className="text-xs font-mono uppercase tracking-widest text-emerald-700">Zelle</p>
                 <h4 className="font-serif text-2xl font-semibold text-[#0B1F3A]">
-                  {method === "Stripe Card"
-                    ? isRu
-                      ? "Оплата успешно проведена"
-                      : "Payment Successfully Processed"
-                    : isRu
-                    ? "Уведомление об оплате Zelle принято"
-                    : "Zelle Payment Notification Received"}
+                  {isRu ? "Уведомление об оплате Zelle отправлено" : "Zelle Payment Notice Sent"}
                 </h4>
                 <p className="text-sm text-slate-600 max-w-md mx-auto">
                   {isRu
-                    ? `Платеж на сумму $${numericSum.toFixed(2)} (${description}) зафиксирован в клиентской системе The Plaksin Law Firm, P.C. Квитанция направлена на ${email}.`
-                    : `Your payment of $${numericSum.toFixed(2)} (${description}) has been recorded in our CRM and a receipt has been sent to ${email}.`}
+                    ? `Мы получили ваше уведомление о переводе $${numericSum.toFixed(2)} (${description}). После поступления средств мы свяжемся с вами по ${email}.`
+                    : `We received your notice of a $${numericSum.toFixed(2)} transfer (${description}). We will contact you at ${email} once the funds arrive.`}
                 </p>
               </div>
 
@@ -218,93 +207,6 @@ export default function PaymentModal({
               >
                 {isRu ? "Закрыть окно" : "Close Window"}
               </button>
-            </div>
-          ) : step === "stripe_checkout" ? (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between bg-[#F8F9FA] border border-slate-200 p-4">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase">plaksinlaw.com</p>
-                  <p className="text-sm font-semibold text-[#0B1F3A]">{description}</p>
-                  <p className="text-xs text-slate-500">{email}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">{isRu ? "К оплате" : "Total Due"}</p>
-                  <p className="text-xl font-bold font-mono text-[#0B1F3A]">${numericSum.toFixed(2)}</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {isRu ? "Номер карты (Stripe Secure Checkout)" : "Card Number (Stripe Secure Checkout)"}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-sm font-mono border border-slate-300 focus:border-[#0075BF] focus:outline-none text-slate-900"
-                    />
-                    <CreditCard className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      {isRu ? "Срок действия (MM/YY)" : "Expiration (MM/YY)"}
-                    </label>
-                    <input
-                      type="text"
-                      value={cardExpiry}
-                      onChange={(e) => setCardExpiry(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-sm font-mono border border-slate-300 focus:border-[#0075BF] focus:outline-none text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">CVC</label>
-                    <input
-                      type="text"
-                      value={cardCvc}
-                      onChange={(e) => setCardCvc(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-sm font-mono border border-slate-300 focus:border-[#0075BF] focus:outline-none text-slate-900"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-[11px] text-slate-500 bg-slate-50 px-3 py-2 border border-slate-200">
-                <Lock className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                <span>
-                  {isRu
-                    ? "Защищенная транзакция Stripe 256-bit SSL. Данные зачисляются на счет The Plaksin Law Firm, P.C."
-                    : "Encrypted 256-bit SSL Stripe Checkout. Processed directly for The Plaksin Law Firm, P.C."}
-                </span>
-              </div>
-
-              <div className="flex gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setStep("form")}
-                  className="px-4 py-3 border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  {isRu ? "Назад" : "Back"}
-                </button>
-                <button
-                  type="button"
-                  disabled={processing}
-                  onClick={() => submitPaymentRecord("Stripe Card")}
-                  className="flex-1 py-3 px-6 bg-[#E59A23] hover:bg-[#d48b17] text-[#0B1F3A] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  {processing
-                    ? isRu
-                      ? "Обработка платежа..."
-                      : "Processing..."
-                    : isRu
-                    ? `Подтвердить оплату $${numericSum.toFixed(2)}`
-                    : `Pay $${numericSum.toFixed(2)} USD`}
-                </button>
-              </div>
             </div>
           ) : (
             <form onSubmit={handleProceed} className="space-y-4">
@@ -400,7 +302,7 @@ export default function PaymentModal({
                       type="button"
                       onClick={() => {
                         setDescription(isRu ? "Оплата консультации" : "Consultation Fee");
-                        setSum(method === "Stripe Card" ? "315" : "300");
+                        setSum("300");
                       }}
                       className="text-[11px] px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium border border-slate-200"
                     >
@@ -465,20 +367,49 @@ export default function PaymentModal({
                 </div>
               </div>
 
+              {method === "Stripe Card" && numericSum > 0 && (
+                <div className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 px-3.5 py-2.5">
+                  <span className="text-slate-600">
+                    {isRu
+                      ? `$${numericSum.toFixed(2)} + 5% комиссия = к оплате картой:`
+                      : `$${numericSum.toFixed(2)} + 5% fee = card total:`}
+                  </span>
+                  <span className="font-mono font-bold text-[#0B1F3A]">${cardTotal.toFixed(2)}</span>
+                </div>
+              )}
+
+              <Turnstile onToken={setTurnstileToken} locale={locale} />
+
               {error && (
                 <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-3 py-2">
                   {error}
                 </p>
               )}
 
+              {method === "Stripe Card" && (
+                <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                  <Lock className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                  <span>
+                    {isRu
+                      ? "Вы будете перенаправлены на защищённую страницу оплаты Stripe."
+                      : "You will be redirected to Stripe's secure checkout page."}
+                  </span>
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full py-3.5 px-6 bg-[#E59A23] hover:bg-[#d48b17] text-[#0B1F3A] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                disabled={processing}
+                className="w-full disabled:opacity-60 py-3.5 px-6 bg-[#E59A23] hover:bg-[#d48b17] text-[#0B1F3A] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
               >
-                {method === "Stripe Card"
+                {processing
                   ? isRu
-                    ? `Оплатить картой ($${numericSum})`
-                    : `Submit Card Payment ($${numericSum})`
+                    ? "Обработка..."
+                    : "Processing..."
+                  : method === "Stripe Card"
+                  ? isRu
+                    ? `Перейти к оплате картой ($${amountDue.toFixed(2)})`
+                    : `Continue to Card Payment ($${amountDue.toFixed(2)})`
                   : isRu
                   ? `Я перевел $${numericSum} через Zelle — Уведомить адвоката`
                   : `I Sent $${numericSum} via Zelle — Notify Firm`}

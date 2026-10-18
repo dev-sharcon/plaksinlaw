@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { X, ArrowRight, CheckCircle2, ExternalLink } from "lucide-react";
 import { CONTACT_INFO, Locale } from "@/data/siteContent";
+import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
+import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
 interface VisaQuizModalProps {
   isOpen: boolean;
@@ -21,6 +23,8 @@ export default function VisaQuizModal({ isOpen, onClose, locale }: VisaQuizModal
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [error, setError] = useState("");
 
   if (!isOpen) return null;
 
@@ -42,27 +46,30 @@ export default function VisaQuizModal({ isOpen, onClose, locale }: VisaQuizModal
 
   const handleComplete = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     if (!fullName.trim() || !phone.trim()) return;
+    if (turnstileEnabled && !turnstileToken) {
+      setError(isRu ? "Пожалуйста, подтвердите, что Вы не робот." : "Please complete the verification.");
+      return;
+    }
     setSubmitting(true);
     const rec = getRecommendedCategory();
     const summary = `Цель: ${goal} | Профиль: ${profile} | Отказы ранее: ${refusals}`;
     try {
-      await fetch("/api/crm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create_lead",
-          fullName: fullName.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-          visaCategory: rec,
-          uscisForm: "Quiz Assessment",
-          source: "visa_quiz",
-          quizSummary: summary,
-          notes: `Результат экспресс-теста на сайте: ${summary}`,
-        }),
+      await postCrm({
+        action: "create_lead",
+        locale,
+        turnstileToken,
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        visaCategory: rec,
+        source: "visa_quiz",
+        notes: `Результат экспресс-теста на сайте: ${summary}`,
       });
       setDone(true);
+    } catch (err) {
+      setError(crmErrorMessage(err, isRu));
     } finally {
       setSubmitting(false);
     }
@@ -313,6 +320,14 @@ export default function VisaQuizModal({ isOpen, onClose, locale }: VisaQuizModal
                   />
                 </div>
               </div>
+
+              <Turnstile onToken={setTurnstileToken} locale={locale} />
+
+              {error && (
+                <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-3 py-2">
+                  {error}
+                </p>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button

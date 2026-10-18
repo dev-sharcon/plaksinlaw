@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Phone, Send, MessageCircle, CheckCircle2, ArrowRight, ShieldCheck } from "lucide-react";
+import { X, Phone, Send, MessageCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { CONTACT_INFO, Locale } from "@/data/siteContent";
+import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
+import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
 interface InquiryModalProps {
   isOpen: boolean;
@@ -24,7 +26,7 @@ export default function InquiryModal({
   const [email, setEmail] = useState("");
   const [visaCategory, setVisaCategory] = useState(preselectedCategory || "");
   const [notes, setNotes] = useState("");
-  const [humanVerified, setHumanVerified] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -52,44 +54,38 @@ export default function InquiryModal({
       return;
     }
 
-    if (!humanVerified) {
+    if (turnstileEnabled && !turnstileToken) {
       setError(
         isRu
-          ? "Пожалуйста, подтвердите, что Вы не робот (защита Cloudflare Turnstile)."
-          : "Please check the verification box before submitting."
+          ? "Пожалуйста, подтвердите, что Вы не робот."
+          : "Please complete the verification before submitting."
       );
       return;
     }
 
     setSubmitting(true);
     try {
-      await fetch("/api/crm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create_lead",
-          fullName: fullName.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-          visaCategory:
-            visaCategory.trim() ||
-            (isRu ? "Первичная консультация ($300)" : "Initial Consultation ($300)"),
-          uscisForm: "Initial Assessment",
-          source: "website_inquiry",
-          notes:
-            notes.trim() ||
-            (isRu
-              ? "Заявка на предварительную консультацию через форму на сайте."
-              : "Consultation inquiry submitted via website modal."),
-        }),
+      await postCrm({
+        action: "create_lead",
+        locale,
+        turnstileToken,
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        visaCategory:
+          visaCategory.trim() ||
+          (isRu ? "Первичная консультация ($300)" : "Initial Consultation ($300)"),
+        uscisForm: "Initial Assessment",
+        source: "website_inquiry",
+        notes:
+          notes.trim() ||
+          (isRu
+            ? "Заявка на предварительную консультацию через форму на сайте."
+            : "Consultation inquiry submitted via website modal."),
       });
       setSubmitted(true);
-    } catch {
-      setError(
-        isRu
-          ? "Ошибка при отправке. Пожалуйста, напишите нам в WhatsApp или Telegram."
-          : "Submission error. Please message us directly via WhatsApp or Telegram."
-      );
+    } catch (err) {
+      setError(crmErrorMessage(err, isRu));
     } finally {
       setSubmitting(false);
     }
@@ -365,21 +361,7 @@ export default function InquiryModal({
                   />
                 </div>
 
-                {/* Cloudflare Turnstile / Verification checkbox */}
-                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 px-3.5 py-2.5">
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs text-slate-700 font-medium">
-                    <input
-                      type="checkbox"
-                      checked={humanVerified}
-                      onChange={(e) => setHumanVerified(e.target.checked)}
-                      className="w-4 h-4 accent-[#0075BF]"
-                    />
-                    <span>
-                      {isRu ? "Подтверждаю отправку заявки (Cloudflare Turnstile)" : "Verify human submission (Cloudflare Turnstile)"}
-                    </span>
-                  </label>
-                  <ShieldCheck className="w-4 h-4 text-[#0075BF]" />
-                </div>
+                <Turnstile onToken={setTurnstileToken} locale={locale} />
 
                 {error && (
                   <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-3 py-2">

@@ -1114,7 +1114,7 @@ export const PRESS_LINKS: PressItem[] = [
   {
     name: "RTVI (США)",
     topic: "Телевизионный эфир: ответы иммиграционного адвоката в Нью-Йорке",
-    url: "https://plaksinlaw.com/rtvi/",
+    url: "/media",
     type: "Телевидение",
   },
   {

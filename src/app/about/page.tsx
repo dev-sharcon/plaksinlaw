@@ -32,7 +32,7 @@ export default function AboutPage() {
             <div className="lg:col-span-4">
               <div className="bg-[#122B4D] border border-[#244673] p-3 max-w-[355px]">
                 <img
-                  src="/foto.png"
+                  src="/img/attorney-portrait.png"
                   alt={
                     isRu
                       ? "Адвокат Андрей Плаксин"
