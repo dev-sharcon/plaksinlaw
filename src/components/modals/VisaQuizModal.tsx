@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, ArrowRight, CheckCircle2, ExternalLink } from "lucide-react";
 import { CONTACT_INFO, Locale } from "@/data/siteContent";
+import DirectContactNotice from "@/components/DirectContactNotice";
 import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
 import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
@@ -25,6 +26,7 @@ export default function VisaQuizModal({ isOpen, onClose, locale }: VisaQuizModal
   const [done, setDone] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [error, setError] = useState("");
+  const [demo, setDemo] = useState(false);
 
   if (!isOpen) return null;
 
@@ -56,7 +58,7 @@ export default function VisaQuizModal({ isOpen, onClose, locale }: VisaQuizModal
     const rec = getRecommendedCategory();
     const summary = `Цель: ${goal} | Профиль: ${profile} | Отказы ранее: ${refusals}`;
     try {
-      await postCrm({
+      const res = await postCrm({
         action: "create_lead",
         locale,
         turnstileToken,
@@ -67,6 +69,7 @@ export default function VisaQuizModal({ isOpen, onClose, locale }: VisaQuizModal
         source: "visa_quiz",
         notes: `Результат экспресс-теста на сайте: ${summary}`,
       });
+      setDemo(Boolean(res.demo));
       setDone(true);
     } catch (err) {
       setError(crmErrorMessage(err, isRu));
@@ -168,10 +171,11 @@ export default function VisaQuizModal({ isOpen, onClose, locale }: VisaQuizModal
                 </h4>
                 <p className="text-sm text-slate-600 max-w-md mx-auto">
                   {isRu
-                    ? "Ваши ответы сохранены в CRM-карточке клиента. Адвокат Андрей Плаксин изучит профиль перед консультацией."
-                    : "Your assessment profile has been saved directly to our firm's CRM for Attorney Andrey Plaksin's review."}
+                    ? "Это предварительная оценка. Точную стратегию адвокат Андрей Плаксин определит на консультации."
+                    : "This is a preliminary assessment. Attorney Andrey Plaksin will define the exact strategy at your consultation."}
                 </p>
               </div>
+              {demo && <DirectContactNotice isRu={isRu} />}
               <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
                 <a
                   href={CONTACT_INFO.testUrl}

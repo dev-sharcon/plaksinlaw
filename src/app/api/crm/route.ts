@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       if (!email) return fail("missing_fields");
 
       if (method === "Zelle") {
-        await deliverLead(
+        const delivered = await deliverLead(
           `Zelle: клиент сообщил об оплате $${base.toFixed(2)}`,
           [
             ["Клиент", name],
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
           ],
           email
         );
-        return NextResponse.json({ ok: true, method });
+        return NextResponse.json({ ok: true, method, demo: !delivered });
       }
 
       if (!isStripeConfigured()) return fail("card_payments_unavailable", 503);
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     }
 
     // Any other submission is a consultation lead (inquiry modal, contacts page, visa quiz).
-    await deliverLead(
+    const delivered = await deliverLead(
       `Новая заявка с сайта: ${name}`,
       [
         ["Имя", name],
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       ],
       email || undefined
     );
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, demo: !delivered });
   } catch (err) {
     console.error("[crm]", err);
     return fail("delivery_failed", 502);

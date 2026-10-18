@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Phone, Send, MessageCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { CONTACT_INFO, Locale } from "@/data/siteContent";
+import DirectContactNotice from "@/components/DirectContactNotice";
 import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
 import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
@@ -30,6 +31,7 @@ export default function InquiryModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [demo, setDemo] = useState(false);
 
   useEffect(() => {
     if (preselectedCategory) {
@@ -65,7 +67,7 @@ export default function InquiryModal({
 
     setSubmitting(true);
     try {
-      await postCrm({
+      const res = await postCrm({
         action: "create_lead",
         locale,
         turnstileToken,
@@ -83,6 +85,7 @@ export default function InquiryModal({
             ? "Заявка на предварительную консультацию через форму на сайте."
             : "Consultation inquiry submitted via website modal."),
       });
+      setDemo(Boolean(res.demo));
       setSubmitted(true);
     } catch (err) {
       setError(crmErrorMessage(err, isRu));
@@ -136,10 +139,12 @@ export default function InquiryModal({
                 </h4>
                 <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
                   {isRu
-                    ? "Данные переданы в систему адвокатского бюро Андрея Плаксина. Мы свяжемся с Вами в ближайшее рабочее время для согласования точного слота консультации."
-                    : "Your request has been logged into The Plaksin Law Firm CRM. Our office will contact you shortly to confirm your consultation slot."}
+                    ? "Мы свяжемся с Вами в ближайшее рабочее время для согласования точного слота консультации."
+                    : "Our office will contact you shortly to confirm your consultation slot."}
                 </p>
               </div>
+
+              {demo && <DirectContactNotice isRu={isRu} />}
 
               {onOpenPayment && (
                 <div className="bg-[#F8F9FA] border border-slate-200 p-5 text-left max-w-lg mx-auto">

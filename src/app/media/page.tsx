@@ -4,11 +4,12 @@ import React from "react";
 import SiteLayout from "@/components/SiteLayout";
 import { useSite } from "@/context/LanguageContext";
 
-// TV appearances migrated from the legacy /rtvi/, /russia24/ and /vesti24/ pages.
-const VIDEOS = [
-  { id: "xKv6pbh1GfQ", channel: "RTVI", ru: "Эфир RTVI (США)", en: "RTVI (USA) broadcast" },
-  { id: "vniVj-QVBZQ", channel: "Россия 24", ru: "Эфир телеканала «Россия 24»", en: "Russia 24 broadcast" },
-  { id: "bbNmoQvysgw", channel: "Вести 24", ru: "Эфир «Вести 24»", en: "Vesti 24 broadcast" },
+// TV appearances migrated from the legacy /ntv/, /rtvi/, /russia24/ and /vesti24/ pages.
+const VIDEOS: { youtube?: string; file?: string; channel: string; ru: string; en: string }[] = [
+  { file: "/vid/ct-fullx.mp4", channel: "НТВ", ru: "Эфир телеканала НТВ", en: "NTV broadcast" },
+  { youtube: "xKv6pbh1GfQ", channel: "RTVI", ru: "Эфир RTVI (США)", en: "RTVI (USA) broadcast" },
+  { youtube: "vniVj-QVBZQ", channel: "Россия 24", ru: "Эфир телеканала «Россия 24»", en: "Russia 24 broadcast" },
+  { youtube: "bbNmoQvysgw", channel: "Вести 24", ru: "Эфир «Вести 24»", en: "Vesti 24 broadcast" },
 ];
 
 export default function MediaPage() {
@@ -38,16 +39,26 @@ export default function MediaPage() {
       <section className="py-16 sm:py-24 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-2 gap-8">
           {VIDEOS.map((v) => (
-            <figure key={v.id} className="border border-slate-200 bg-[#F8FAFC]">
+            <figure key={v.channel} className="border border-slate-200 bg-[#F8FAFC]">
               <div className="relative aspect-video bg-black">
-                <iframe
-                  className="absolute inset-0 w-full h-full"
-                  src={`https://www.youtube-nocookie.com/embed/${v.id}`}
-                  title={isRu ? v.ru : v.en}
-                  loading="lazy"
-                  allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+                {v.youtube ? (
+                  <iframe
+                    className="absolute inset-0 w-full h-full"
+                    src={`https://www.youtube-nocookie.com/embed/${v.youtube}`}
+                    title={isRu ? v.ru : v.en}
+                    loading="lazy"
+                    allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    className="absolute inset-0 w-full h-full"
+                    src={v.file}
+                    controls
+                    preload="metadata"
+                    playsInline
+                  />
+                )}
               </div>
               <figcaption className="px-5 py-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0075BF]">

@@ -2,6 +2,8 @@ export interface CrmResponse {
   ok: boolean;
   error?: string;
   checkoutUrl?: string;
+  /** True when the submission was not delivered anywhere (lead channels not connected yet). */
+  demo?: boolean;
 }
 
 /** POSTs a form submission to /api/crm and throws with the server error code on failure. */
@@ -23,8 +25,8 @@ export function crmErrorMessage(err: unknown, isRu: boolean) {
   }
   if (code === "card_payments_unavailable") {
     return isRu
-      ? "Оплата картой временно недоступна. Пожалуйста, используйте Zelle или напишите нам в WhatsApp / Telegram."
-      : "Card payments are temporarily unavailable. Please use Zelle or message us via WhatsApp / Telegram.";
+      ? "Онлайн-оплата картой скоро будет доступна. Пока, пожалуйста, используйте Zelle или свяжитесь с нами по телефону +1 (929) 249-0070, в WhatsApp или Telegram."
+      : "Online card payment will be available soon. For now, please use Zelle or contact us at +1 (929) 249-0070, WhatsApp or Telegram.";
   }
   if (code === "invalid_amount") {
     return isRu ? "Сумма должна быть от $1 до $25,000." : "Amount must be between $1 and $25,000.";

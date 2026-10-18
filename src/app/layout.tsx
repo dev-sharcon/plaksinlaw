@@ -11,11 +11,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://plaksinlaw.com"),
   title: {
-    default: "U.S. Visa & Immigration Attorney Andrey Plaksin | The Plaksin Law Firm, P.C.",
+    default: "Визовый и иммиграционный адвокат в США Андрей Плаксин | The Plaksin Law Firm, P.C.",
     template: "%s | The Plaksin Law Firm, P.C.",
   },
   description:
-    "U.S. Visa and Immigration Attorney Andrey Plaksin represents clients in O-1, L-1, E-2, H-1B visas, EB-1A, EB-2 NIW, EB-1C, EB-5 green cards, and family immigration. Offices in New York & Miami: +1 (929) 249-0070.",
+    "Андрей Плаксин — визовый и иммиграционный адвокат в США: визы O-1, L-1, E-2, H-1B, грин-карты EB-1A, EB-2 NIW, EB-1C, EB-5, семейная иммиграция. Офисы в Нью-Йорке и Майами: +1 (929) 249-0070.",
   keywords: [
     "US immigration attorney",
     "Andrey Plaksin attorney",
@@ -31,16 +31,21 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: "/",
+    languages: {
+      ru: "/",
+      en: "/eng",
+      "x-default": "/",
+    },
   },
   openGraph: {
     type: "website",
-    locale: "en_US",
-    alternateLocale: ["ru_RU"],
+    locale: "ru_RU",
+    alternateLocale: ["en_US"],
     url: "https://plaksinlaw.com/",
     siteName: "The Plaksin Law Firm, P.C.",
-    title: "U.S. Visa & Immigration Attorney Andrey Plaksin | New York & Florida",
+    title: "Визовый и иммиграционный адвокат в США Андрей Плаксин | Нью-Йорк и Флорида",
     description:
-      "Personal representation by Attorney Andrey Plaksin for business immigration, O-1, L-1, E-2 visas, and EB-1A, EB-1C, EB-5 green cards. Licensed in NY, NJ, and FL.",
+      "Личное ведение дел адвокатом Андреем Плаксиным: бизнес-иммиграция, визы O-1, L-1, E-2, грин-карты EB-1A, EB-1C, EB-5. Лицензии штатов Нью-Йорк, Нью-Джерси и Флорида.",
     images: [
       {
         url: "/img/attorney-portrait.png",
@@ -133,7 +138,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

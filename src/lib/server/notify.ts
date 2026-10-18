@@ -62,7 +62,8 @@ async function sendEmail(title: string, fields: LeadField[], replyTo?: string) {
 
 /**
  * Delivers a website submission to every configured channel (Telegram and/or email).
- * Throws if no channel is configured in production, or if every configured channel failed.
+ * Returns false when no channel is configured yet (demo mode: the submission is only logged).
+ * Throws if every configured channel failed.
  */
 export async function deliverLead(title: string, fields: LeadField[], replyTo?: string) {
   const results = await Promise.allSettled([sendTelegram(title, fields), sendEmail(title, fields, replyTo)]);
@@ -71,14 +72,11 @@ export async function deliverLead(title: string, fields: LeadField[], replyTo?: 
   const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
   failures.forEach((f) => console.error("[lead delivery]", f.reason));
 
-  if (delivered) return;
+  if (delivered) return true;
 
   if (failures.length === 0) {
-    if (process.env.NODE_ENV !== "production") {
-      console.info("[lead delivery] no channel configured, lead:", title, present(fields));
-      return;
-    }
-    throw new Error("No lead delivery channel configured (set TELEGRAM_* or RESEND_API_KEY/LEAD_EMAIL_TO)");
+    console.info("[lead delivery] demo mode, no channel configured:", title);
+    return false;
   }
   throw new Error("All lead delivery channels failed");
 }

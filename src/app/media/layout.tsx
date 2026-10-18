@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Media & Television",
+  title: "Адвокат в эфире: СМИ и телевидение",
   description:
-    "TV appearances of U.S. immigration attorney Andrey Plaksin on RTVI, Russia 24 and Vesti 24.",
+    "Эфиры иммиграционного адвоката Андрея Плаксина на телеканалах НТВ, RTVI, «Россия 24» и «Вести 24».",
   alternates: { canonical: "/media" },
 };
 

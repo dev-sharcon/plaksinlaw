@@ -15,13 +15,14 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { CONTACT_INFO } from "@/data/siteContent";
+import DirectContactNotice from "@/components/DirectContactNotice";
 import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
 import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
 function PayPageInner() {
   const searchParams = useSearchParams();
   const [locale, setLocale] = useState<"ru" | "en">(
-    searchParams.get("lang") === "ru" ? "ru" : "en"
+    searchParams.get("lang") === "en" ? "en" : "ru"
   );
   const isRu = locale === "ru";
 
@@ -41,6 +42,7 @@ function PayPageInner() {
   const [paidVia, setPaidVia] = useState<"Stripe Card" | "Zelle">("Stripe Card");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [demo, setDemo] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
 
   const numericSum = parseFloat(sum) || 0;
@@ -84,6 +86,7 @@ function PayPageInner() {
         return;
       }
       setPaidVia(method);
+      setDemo(Boolean(data.demo));
       setStep("success");
       setProcessing(false);
     } catch (err) {
@@ -154,7 +157,11 @@ function PayPageInner() {
                   </p>
                   <h2 className="font-serif text-2xl font-semibold text-[#0B1F3A]">
                     {paidVia === "Zelle"
-                      ? isRu
+                      ? demo
+                        ? isRu
+                          ? "Спасибо! Сообщите нам о переводе"
+                          : "Thank you! Please let us know about your transfer"
+                        : isRu
                         ? "Уведомление об оплате Zelle отправлено"
                         : "Zelle Payment Notice Sent"
                       : isRu
@@ -163,7 +170,9 @@ function PayPageInner() {
                   </h2>
                   <p className="text-sm text-slate-600">
                     {paidVia === "Zelle"
-                      ? isRu
+                      ? demo
+                        ? ""
+                        : isRu
                         ? `Мы получили ваше уведомление о переводе $${numericSum.toFixed(2)}. После поступления средств мы свяжемся с вами.`
                         : `We received your notice of a $${numericSum.toFixed(2)} transfer and will contact you once the funds arrive.`
                       : isRu
@@ -171,6 +180,7 @@ function PayPageInner() {
                       : "Thank you! Stripe has emailed your receipt."}
                   </p>
                 </div>
+                {demo && <DirectContactNotice isRu={isRu} />}
                 <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
                   <Link
                     href="/"

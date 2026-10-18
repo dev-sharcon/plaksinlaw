@@ -10,7 +10,11 @@ cp .env.example .env.local   # fill in the keys you need
 npm run dev
 ```
 
-Without any delivery channel configured, form submissions are only logged to the console in development and **fail with an error in production** (they are never silently dropped).
+**Demo mode.** Until a delivery channel (Telegram / Resend) is configured, form submissions are only logged on the server and the success screen asks the visitor to call or message the office on WhatsApp / Telegram. Until `STRIPE_SECRET_KEY` is set, card payment shows "online card payment coming soon, use Zelle or contact us". No card data is ever collected by the site.
+
+## Languages
+
+`/` is Russian and `/eng` is English (as on the old site). Inner pages follow the visitor's choice (Russian by default), stored in `localStorage`.
 
 ## How forms and payments work
 

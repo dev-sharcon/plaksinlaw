@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Locale } from "@/data/siteContent";
 import InquiryModal from "@/components/modals/InquiryModal";
 import PaymentModal from "@/components/modals/PaymentModal";
@@ -19,35 +20,46 @@ interface PaymentPrefill {
 interface LanguageContextValue {
   locale: Locale;
   setLocale: (loc: Locale) => void;
+  /** Home page URL for the current language: "/" is Russian, "/eng" is English. */
+  homeHref: string;
   openInquiry: (category?: string) => void;
   openPayment: (prefill?: PaymentPrefill) => void;
   openQuiz: () => void;
 }
 
 const LanguageContext = createContext<LanguageContextValue>({
-  locale: "en",
+  locale: "ru",
   setLocale: () => {},
+  homeHref: "/",
   openInquiry: () => {},
   openPayment: () => {},
   openQuiz: () => {},
 });
 
-export function LanguageProvider({
-  children,
-  initialLocale = "en",
-}: {
-  children: React.ReactNode;
-  initialLocale?: Locale;
-}) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+// The home page has a fixed language per URL; other pages follow the visitor's choice (Russian by default).
+const localeForPath = (path: string | null): Locale | null =>
+  path === "/eng" ? "en" : path === "/" ? "ru" : null;
 
-  // Restore the visitor's language choice after hydration and keep <html lang> in sync.
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [locale, setLocaleState] = useState<Locale>(localeForPath(pathname) ?? "ru");
+
+  // On the home URLs the path decides; elsewhere restore the saved choice after hydration.
   useEffect(() => {
+    const fromPath = localeForPath(pathname);
+    if (fromPath) {
+      setLocaleState(fromPath);
+      try {
+        localStorage.setItem(LOCALE_STORAGE_KEY, fromPath);
+      } catch {}
+      return;
+    }
     try {
       const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
       if (saved === "ru" || saved === "en") setLocaleState(saved);
     } catch {}
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -58,7 +70,11 @@ export function LanguageProvider({
     try {
       localStorage.setItem(LOCALE_STORAGE_KEY, loc);
     } catch {}
+    if (localeForPath(pathname)) router.push(loc === "en" ? "/eng" : "/");
   };
+
+  const homeHref = locale === "en" ? "/eng" : "/";
+
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [inquiryCategory, setInquiryCategory] = useState("");
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -84,6 +100,7 @@ export function LanguageProvider({
       value={{
         locale,
         setLocale,
+        homeHref,
         openInquiry,
         openPayment,
         openQuiz,

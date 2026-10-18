@@ -17,13 +17,13 @@ import { useSite } from "@/context/LanguageContext";
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { locale, setLocale, openInquiry, openPayment } = useSite();
+  const { locale, setLocale, homeHref, openInquiry, openPayment } = useSite();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isRu = locale === "ru";
 
   const navLinks = [
-    { href: "/", label: isRu ? "Главная" : "Home" },
+    { href: homeHref, label: isRu ? "Главная" : "Home" },
     { href: "/practice", label: isRu ? "Услуги и визы" : "Practice Areas" },
     { href: "/about", label: isRu ? "Об адвокате" : "About Attorney" },
     { href: "/cases", label: isRu ? "Кейсы" : "Case Studies" },
@@ -37,7 +37,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xs border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
           {/* Brand Wordmark */}
-          <Link href="/" className="shrink-0 group">
+          <Link href={homeHref} className="shrink-0 group">
             <div className="font-serif text-lg sm:text-xl font-bold tracking-tight text-[#0B1F3A] leading-none">
               THE PLAKSIN LAW FIRM, P.C.
             </div>

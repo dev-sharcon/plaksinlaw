@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Online Payment",
+  title: "Онлайн-оплата",
   description:
-    "Secure online payment of consultation and legal fees to The Plaksin Law Firm, P.C.",
+    "Оплата консультации и юридических услуг The Plaksin Law Firm, P.C.",
   alternates: { canonical: "/pay" },
   robots: { index: false, follow: true },
 };

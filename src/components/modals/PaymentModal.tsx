@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, CreditCard, Copy, Check, Lock, CheckCircle2, Building2 } from "lucide-react";
+import DirectContactNotice from "@/components/DirectContactNotice";
 import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
 import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 import { CONTACT_INFO, Locale } from "@/data/siteContent";
@@ -41,6 +42,7 @@ export default function PaymentModal({
   const [step, setStep] = useState<"form" | "success">("form");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [demo, setDemo] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
 
   useEffect(() => {
@@ -126,6 +128,7 @@ export default function PaymentModal({
         window.location.assign(data.checkoutUrl);
         return;
       }
+      setDemo(Boolean(data.demo));
       setStep("success");
       setProcessing(false);
     } catch (err) {
@@ -176,14 +179,24 @@ export default function PaymentModal({
               <div className="space-y-1.5">
                 <p className="text-xs font-mono uppercase tracking-widest text-emerald-700">Zelle</p>
                 <h4 className="font-serif text-2xl font-semibold text-[#0B1F3A]">
-                  {isRu ? "Уведомление об оплате Zelle отправлено" : "Zelle Payment Notice Sent"}
+                  {demo
+                    ? isRu
+                      ? "Спасибо! Сообщите нам о переводе"
+                      : "Thank you! Please let us know about your transfer"
+                    : isRu
+                    ? "Уведомление об оплате Zelle отправлено"
+                    : "Zelle Payment Notice Sent"}
                 </h4>
-                <p className="text-sm text-slate-600 max-w-md mx-auto">
-                  {isRu
-                    ? `Мы получили ваше уведомление о переводе $${numericSum.toFixed(2)} (${description}). После поступления средств мы свяжемся с вами по ${email}.`
-                    : `We received your notice of a $${numericSum.toFixed(2)} transfer (${description}). We will contact you at ${email} once the funds arrive.`}
-                </p>
+                {!demo && (
+                  <p className="text-sm text-slate-600 max-w-md mx-auto">
+                    {isRu
+                      ? `Мы получили ваше уведомление о переводе $${numericSum.toFixed(2)} (${description}). После поступления средств мы свяжемся с вами по ${email}.`
+                      : `We received your notice of a $${numericSum.toFixed(2)} transfer (${description}). We will contact you at ${email} once the funds arrive.`}
+                  </p>
+                )}
               </div>
+
+              {demo && <DirectContactNotice isRu={isRu} />}
 
               <div className="bg-[#F8F9FA] border border-slate-200 p-4 text-left text-xs space-y-1.5 font-mono text-slate-700">
                 <div className="flex justify-between">

@@ -3,6 +3,7 @@ import { MetadataRoute } from "next";
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     { path: "/", priority: 1.0 },
+    { path: "/eng", priority: 1.0 },
     { path: "/practice", priority: 0.9 },
     { path: "/about", priority: 0.9 },
     { path: "/cases", priority: 0.9 },

@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import SiteLayout from "@/components/SiteLayout";
 import { useSite } from "@/context/LanguageContext";
 import { CONTACT_INFO } from "@/data/siteContent";
+import DirectContactNotice from "@/components/DirectContactNotice";
 import Turnstile, { turnstileEnabled } from "@/components/Turnstile";
 import { postCrm, crmErrorMessage } from "@/lib/crmClient";
 
@@ -22,6 +23,7 @@ export default function ContactsPage() {
   const [submitted, setSubmitted] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [error, setError] = useState("");
+  const [demo, setDemo] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +35,7 @@ export default function ContactsPage() {
     }
     setSubmitting(true);
     try {
-      await postCrm({
+      const res = await postCrm({
         type: "CONSULTATION_INQUIRY",
         source: "contacts_page",
         clientName: name,
@@ -44,6 +46,7 @@ export default function ContactsPage() {
         locale,
         turnstileToken,
       });
+      setDemo(Boolean(res.demo));
       setSubmitted(true);
     } catch (err) {
       setError(crmErrorMessage(err, isRu));
@@ -212,6 +215,7 @@ export default function ContactsPage() {
                       ? "Мы свяжемся с вами в ближайшее рабочее время для подтверждения записи. Вы также можете сразу оплатить консультацию онлайн."
                       : "Our office will contact you shortly to confirm your appointment time. You may also complete your consultation payment online."}
                   </p>
+                  {demo && <DirectContactNotice isRu={isRu} />}
                   <button
                     type="button"
                     onClick={() =>
